@@ -1,11 +1,13 @@
 use std::fs::File;
 use std::io::Read;
 
-mod ram;
-use ram::Ram;
-
 mod chip8;
 use chip8::Chip8;
+
+mod cpu;
+mod display;
+mod errors;
+mod ram;
 
 const ROM_PATH: &str = "games/danm8ku.ch8";
 
@@ -20,4 +22,8 @@ fn main() {
     chip8.load_rom(&data);
 
     println!("{:?}", chip8);
+
+    loop {
+        chip8.tick();
+    }
 }

@@ -40,4 +40,8 @@ impl Ram {
     pub fn read_byte(&mut self, addr: u16) -> u8 {
         self.mem[addr as usize]
     }
+
+    pub fn length(&self) -> usize {
+        self.mem.len()
+    }
 }
