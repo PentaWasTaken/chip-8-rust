@@ -28,6 +28,13 @@ impl Cpu {
         let instr_l = ram.read_byte(self.pc + 1); //Lower (leasz significant) byte of the instruction
         let instr = ((instr_u as u16) << 8) | (instr_l as u16);
 
+        //The middle 8 bits are often used, so they are defined here
+        let x = (instr & 0x0F00) >> 8;
+        let y = (instr & 0x00F0) >> 4;
+        //They are used to access registers, so those are read here.
+        let val_x = self.vx[x as usize];
+        let val_y = self.vx[y as usize];
+
         //Clears the display
         if instr == 0x00E0 {
             display.clear();
@@ -56,69 +63,53 @@ impl Cpu {
 
         //Skips the next instruction if the register is equal to the value of the lower 8 bits
         } else if instr & 0xF000 == 0x3000 {
-            let index = (instr & 0x0F00) >> 8;
             let value = instr & 0x00FF;
-            if self.vx[index as usize] == value as u8 {
+            if val_x == value as u8 {
                 self.pc += 2;
             }
 
         //Skips the next instruction if the register is not equal to the value of the lower 8 bits
         } else if instr & 0xF000 == 0x4000 {
-            let index = (instr & 0x0F00) >> 8;
             let value = instr & 0x00FF;
-            if self.vx[index as usize] != value as u8 {
+            if val_x != value as u8 {
                 self.pc += 2;
             }
 
         //Skip the next intstruction if the registers are equal
         } else if instr & 0xF000 == 0x5000 {
-            let r1 = (instr & 0x0F00) >> 8;
-            let r2 = (instr & 0x00F0) >> 4;
-            if self.vx[r1 as usize] == self.vx[r2 as usize] {
+            if val_x == val_y {
                 self.pc += 2;
             }
 
         //Put the value of the lower 8 bits into the register
         } else if instr & 0xF000 == 0x6000 {
-            let r = (instr & 0x0F00) >> 8;
             let val = instr & 0x00FF;
-            self.vx[r as usize] = val as u8;
+            self.vx[x as usize] = val as u8;
 
         //Adds the value of the lower 8 bits to the register and stores it in the register
         } else if instr & 0xF000 == 0x7000 {
-            let r = (instr & 0x0F00) >> 8;
             let val = instr & 0x00FF;
-            self.vx[r as usize] = ((self.vx[r as usize] as u16 + val) % 256) as u8;
+            self.vx[x as usize] = ((self.vx[x as usize] as u16 + val) % 256) as u8;
 
         //Stores the value of register y into register x
         } else if instr & 0xF00F == 0x8000 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
             self.vx[x as usize] = self.vx[y as usize];
 
         //Bitwise OR on registers x and y, storing the result in register x
         } else if instr & 0xF00F == 0x8001 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
             self.vx[x as usize] = self.vx[x as usize] | self.vx[y as usize];
 
         //Bitwise AND on registers x and y, storing the result in register x
         } else if instr & 0xF00F == 0x8002 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
             self.vx[x as usize] = self.vx[x as usize] & self.vx[y as usize];
 
         //Bitwise XOR on registers x and y, storing the result in register x
         } else if instr & 0xF00F == 0x8003 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
             self.vx[x as usize] = self.vx[x as usize] ^ self.vx[y as usize];
 
         //Addition of registers x + y, storing into x. If the value overflows, set vF to 1, else to 0.
         } else if instr & 0xF00F == 0x8004 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
-            let sum = self.vx[x as usize] as u16 + self.vx[y as usize] as u16;
+            let sum = val_x as u16 + val_y as u16;
             if sum > 255 {
                 self.vx[0xF] = 1;
             } else {
@@ -128,49 +119,39 @@ impl Cpu {
 
         //Subtraction of registers x - y, storing into x. If value x > value y, then vF is set to 1, otherwise 0.
         } else if instr & 0xF00F == 0x8005 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
-            if self.vx[x as usize] > self.vx[y as usize] {
+            if val_x > val_y {
                 self.vx[0xF] = 1;
             } else {
                 self.vx[0xF] = 0;
             }
-            let diff = self.vx[x as usize] as i16 - self.vx[y as usize] as i16;
+            let diff = val_x as i16 - val_y as i16;
             self.vx[x as usize] = diff as u8;
 
         //Shift value of register y one bit to the right, store in register x.
         //vF is set to the least significant bit prior to the shift.
         } else if instr & 0xF00F == 0x8006 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
-            self.vx[0xF] = self.vx[y as usize] & 0x1;
-            self.vx[x as usize] = self.vx[y as usize] >> 1;
+            self.vx[0xF] = val_y & 0x1;
+            self.vx[x as usize] = val_y >> 1;
 
         //Shift value of register y one bit to the left, store in register x.
         //vF is set to the least significant bit prior to the shift.
         } else if instr & 0xF00F == 0x800E {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
-            self.vx[0xF] = self.vx[y as usize] & 0x80;
-            self.vx[x as usize] = self.vx[y as usize] << 1;
+            self.vx[0xF] = val_y & 0x80;
+            self.vx[x as usize] = val_y << 1;
 
         //Subtraction of registers y - x, storing into x. If value x > value y, then vF is set to 1, otherwise 0.
         } else if instr & 0xF00F == 0x8007 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
-            if self.vx[y as usize] > self.vx[x as usize] {
+            if val_y > val_y {
                 self.vx[0xF] = 1;
             } else {
                 self.vx[0xF] = 0;
             }
-            let diff = self.vx[y as usize] as i16 - self.vx[x as usize] as i16;
+            let diff = val_y as i16 - val_x as i16;
             self.vx[x as usize] = diff as u8;
 
         //Skip the next instruction if value x != value y.
         } else if instr & 0xF00F == 0x9000 {
-            let x = (instr & 0x0F00) >> 8;
-            let y = (instr & 0x00F0) >> 4;
-            if self.vx[x as usize] != self.vx[y as usize] {
+            if val_x != val_y {
                 self.pc += 2;
             }
         } else {
