@@ -2,12 +2,15 @@ use crate::display::Display;
 use crate::errors::Chip8Error;
 use crate::ram::Ram;
 
+use rand::{rngs::ThreadRng, Rng};
+
 #[derive(Debug)]
 pub struct Cpu {
     vx: [u8; 16], //General purpose registers
     pc: u16,      //Program counter
     i: u16,       //Another register, mostly for memory addresses
     stack: Vec<u16>,
+    rng: ThreadRng,
 }
 
 impl Cpu {
@@ -17,6 +20,7 @@ impl Cpu {
             pc: 0x200, //Points to the start of the executable by default
             i: 0,
             stack: Vec::with_capacity(16),
+            rng: rand::thread_rng(),
         }
     }
 
@@ -35,8 +39,11 @@ impl Cpu {
         let val_x = self.vx[x as usize];
         let val_y = self.vx[y as usize];
 
+        //NOOP
+        if instr == 0x0 {
+            {} //Do nothing
         //Clears the display
-        if instr == 0x00E0 {
+        } else if instr == 0x00E0 {
             display.clear();
 
         //Returns from a subroutine
@@ -154,6 +161,28 @@ impl Cpu {
             if val_x != val_y {
                 self.pc += 2;
             }
+
+        //Set I to the last 12 bits.
+        } else if instr & 0xF000 == 0xA000 {
+            self.i = instr & 0x0FFF;
+
+        //Jump to location V0 + the last 12 bits.
+        } else if instr & 0xF000 == 0xB000 {
+            self.pc = self.vx[0] as u16 + instr & 0x0FFF;
+
+        //Set register x to a random byte & the value of the last 8 bits.
+        } else if instr & 0xF000 == 0xC000 {
+            let rand_num: u8 = self.rng.gen();
+            self.vx[x as usize] = (instr & 0x00FF) as u8 & rand_num;
+
+        //Display a n-byte sprite starting from location I, at the position of registers x and y.
+        //The sprite is XOR'd onto the screen. VF is set to 1 if there is a collision, else 0.
+        //The sprite is wrapped around the screen if pixels are off-screen.
+        } else if instr & 0xF000 == 0xD000 {
+            let n = instr & 0x000F;
+            let bytes: Vec<u8> = (0..n).map(|x| ram.read_byte(x)).collect();
+            let collision = display.display_sprite(&bytes, x, y);
+            self.vx[0xF] = collision as u8;
         } else {
             return Err(Chip8Error::UnsupportedInstr(instr, self.pc));
         }
