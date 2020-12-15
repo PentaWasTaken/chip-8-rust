@@ -17,7 +17,8 @@ impl Display {
         self.data = [false; WIDTH * HEIGHT];
     }
 
-    pub fn display_sprite(&mut self, spr_data: &[u8], x_pos: u16, y_pos: u16) -> bool { //Returns true on collision
+    pub fn display_sprite(&mut self, spr_data: &[u8], x_pos: u16, y_pos: u16) -> bool {
+        //Returns true on collision
         let mut collision = false;
         for (y_index, &line) in spr_data.iter().enumerate() {
             //Loop through each bit in the byte

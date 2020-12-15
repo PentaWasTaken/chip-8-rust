@@ -11,6 +11,7 @@ pub struct Cpu {
     i: u16,       //Another register, mostly for memory addresses
     stack: Vec<u16>,
     rng: ThreadRng,
+    blocked: bool,
 }
 
 impl Cpu {
@@ -21,10 +22,18 @@ impl Cpu {
             i: 0,
             stack: Vec::with_capacity(16),
             rng: rand::thread_rng(),
+            blocked: false,
         }
     }
 
-    pub fn tick(&mut self, ram: &mut Ram, display: &mut Display) -> Result<(), Chip8Error> {
+    pub fn tick(
+        &mut self,
+        ram: &mut Ram,
+        display: &mut Display,
+        keys: &[bool; 16],
+        delay_t: &mut u8,
+        sound_t: &mut u8,
+    ) -> Result<(), Chip8Error> {
         if self.pc >= (ram.length() - 1) as u16 {
             return Err(Chip8Error::EOF);
         }
@@ -42,7 +51,7 @@ impl Cpu {
         //NOOP
         if instr == 0x0 {
             {} //Do nothing
-        //Clears the display
+               //Clears the display
         } else if instr == 0x00E0 {
             display.clear();
 
@@ -183,6 +192,63 @@ impl Cpu {
             let bytes: Vec<u8> = (0..n).map(|x| ram.read_byte(x)).collect();
             let collision = display.display_sprite(&bytes, x, y);
             self.vx[0xF] = collision as u8;
+
+        //Skips the next instruction if the key x is not pressed
+        } else if instr & 0xF0FF == 0xE0A1 {
+            if !keys[x as usize] {
+                self.pc += 2;
+            }
+
+        //Skips the next instruction if the key x is pressed
+        } else if instr & 0xF0FF == 0xE09E {
+            if keys[x as usize] {
+                self.pc += 2;
+            }
+
+        //Set register x to the value of the delay timer
+        } else if instr & 0xF0FF == 0xF007 {
+            self.vx[x as usize] = *delay_t;
+
+        //Block the cpu. Unblock happens when a key is pressed
+        } else if instr & 0xF0FF == 0xF00A {
+            self.blocked = true;
+
+        //Set the delay timer to the value of register x
+        } else if instr & 0xF0FF == 0xF015 {
+            *delay_t = self.vx[x as usize];
+
+        //Set the sound timer to the value of register x
+        } else if instr & 0xF0FF == 0xF018 {
+            *sound_t = self.vx[x as usize];
+
+        //Add register x to I, storing in I
+        } else if instr & 0xF0FF == 0xF01E {
+            self.i += self.vx[x as usize] as u16;
+
+        //Set I to the location of the sprite for the digit corresponding to the value of register x
+        } else if instr & 0xF0FF == 0xF029 {
+            self.i = self.vx[x as usize] as u16 * 5;
+
+        //Store a BCD representation of the value in register x in memory.
+        //Hundreds digit: i
+        //Tens digit: i + 1
+        //Ones digit: i + 2
+        } else if instr & 0xF0FF == 0xF033 {
+            ram.write_byte(self.i, self.vx[x as usize] / 100);
+            ram.write_byte(self.i + 1, self.vx[x as usize] % 100 / 10);
+            ram.write_byte(self.i + 2, self.vx[x as usize] % 10);
+
+        //Store registers v0 to vx to ram, starting at location i
+        } else if instr & 0xF0FF == 0xF055 {
+            for j in 0..x {
+                ram.write_byte(j + x, self.vx[j as usize]);
+            }
+
+        //Store registers v0 to vx to ram, starting at location i
+        } else if instr & 0xF0FF == 0xF065 {
+            for j in 0..x {
+                self.vx[j as usize] = ram.read_byte(self.i + j);
+            }
         } else {
             return Err(Chip8Error::UnsupportedInstr(instr, self.pc));
         }

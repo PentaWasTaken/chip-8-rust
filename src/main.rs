@@ -21,9 +21,8 @@ fn main() {
     let mut chip8 = Chip8::new();
     chip8.load_rom(&data);
 
-    println!("{:?}", chip8);
-
     loop {
         chip8.tick();
+        println!("{:?}\n\n", chip8);
     }
 }
