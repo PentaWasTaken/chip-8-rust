@@ -97,7 +97,7 @@ impl Cpu {
                 self.pc += 2;
             }
 
-        //Put the value of the lower 8 bits into the register
+        //Put the value of the lower 8 bits into the register x
         } else if instr & 0xF000 == 0x6000 {
             let val = instr & 0x00FF;
             self.vx[x as usize] = val as u8;
@@ -189,8 +189,8 @@ impl Cpu {
         //The sprite is wrapped around the screen if pixels are off-screen.
         } else if instr & 0xF000 == 0xD000 {
             let n = instr & 0x000F;
-            let bytes: Vec<u8> = (0..n).map(|x| ram.read_byte(x)).collect();
-            let collision = display.display_sprite(&bytes, x, y);
+            let bytes: Vec<u8> = (0..n).map(|x| ram.read_byte(self.i + x)).collect();
+            let collision = display.display_sprite(&bytes, self.vx[x as usize] as u16, self.vx[y as usize] as u16);
             self.vx[0xF] = collision as u8;
 
         //Skips the next instruction if the key x is not pressed

@@ -1,6 +1,11 @@
 use crate::cpu::Cpu;
+use crate::display;
 use crate::display::Display;
 use crate::ram::Ram;
+
+use ggez::event::EventHandler;
+use ggez::graphics::{self, DrawParam, Image};
+use ggez::{timer, Context, GameResult};
 
 #[derive(Debug)]
 pub struct Chip8 {
@@ -31,17 +36,46 @@ impl Chip8 {
             self.ram.write_byte(index as u16 + offset, *value);
         }
     }
+}
 
-    pub fn tick(&mut self) {
-        let error = self.cpu.tick(
-            &mut self.ram,
-            &mut self.display,
-            &self.keys,
-            &mut self.delay_t,
-            &mut self.sound_t,
-        );
-        if error.is_err() {
-            panic!("{}", error.unwrap_err());
+impl EventHandler for Chip8 {
+    fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
+        const DESIRED_HZ: u32 = 500;
+        while timer::check_update_time(ctx, DESIRED_HZ) {
+            let err = self.cpu
+                .tick(
+                    &mut self.ram,
+                    &mut self.display,
+                    &self.keys,
+                    &mut self.delay_t,
+                    &mut self.sound_t,
+                );
+
+            if let Err(e) = err {
+                panic!("{}", e);
+            }
         }
+
+        //println!("{:?}", self);
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+        graphics::clear(ctx, graphics::WHITE);
+
+        //Convert display to rgba
+        let raw_display = self.display.to_raw();
+        let mut image = Image::from_rgba8(
+            ctx,
+            display::WIDTH as u16,
+            display::HEIGHT as u16,
+            &raw_display,
+        )
+        .unwrap();
+        image.set_filter(graphics::FilterMode::Nearest);
+
+        graphics::draw(ctx, &image, DrawParam::default().scale([10.0, 10.0]))?;
+
+        graphics::present(ctx)
     }
 }

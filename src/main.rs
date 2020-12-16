@@ -9,7 +9,9 @@ mod display;
 mod errors;
 mod ram;
 
-const ROM_PATH: &str = "games/danm8ku.ch8";
+const ROM_PATH: &str = "games/IBM Logo.ch8";
+
+use ggez::{ContextBuilder, event};
 
 fn main() {
     //Read the ROM file
@@ -21,8 +23,12 @@ fn main() {
     let mut chip8 = Chip8::new();
     chip8.load_rom(&data);
 
-    loop {
-        chip8.tick();
-        println!("{:?}\n\n", chip8);
+    let (mut ctx, mut event_loop) = ContextBuilder::new("my_game", "Cool Game Author")
+        .build()
+        .expect("aieee, could not create ggez context!");
+
+    match event::run(&mut ctx, &mut event_loop, &mut chip8) {
+        Ok(_) => println!("Exited cleanly."),
+        Err(e) => println!("Error occured: {}", e),
     }
 }

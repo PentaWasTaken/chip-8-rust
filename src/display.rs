@@ -23,7 +23,7 @@ impl Display {
         for (y_index, &line) in spr_data.iter().enumerate() {
             //Loop through each bit in the byte
             for x_index in 0..8 {
-                let bit = line & (1 << x_index);
+                let bit = line & (0x80 >> x_index);
 
                 let final_x = (x_pos + x_index) % WIDTH as u16;
                 let final_y = (y_pos + y_index as u16) % HEIGHT as u16;
@@ -42,5 +42,18 @@ impl Display {
     #[inline]
     fn coords_to_index(x: u16, y: u16) -> u16 {
         y * WIDTH as u16 + x
+    }
+
+    pub fn to_raw(&self) -> Vec<u8> {
+        //TODO: Suboptimal code here, optimize later
+        let mut result: Vec<u8> = Vec::new();
+        for i in &self.data {
+            if *i {
+                result.append(&mut vec![255, 255, 255, 255]);
+            } else {
+                result.append(&mut vec![0, 0, 0, 255]);
+            }
+        }
+        result
     }
 }
