@@ -9,7 +9,7 @@ mod display;
 mod errors;
 mod ram;
 
-const ROM_PATH: &str = "games/IBM Logo.ch8";
+const ROM_PATH: &str = "games/CONNECT4";
 
 use ggez::{ContextBuilder, event};
 

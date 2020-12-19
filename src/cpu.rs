@@ -6,12 +6,12 @@ use rand::{rngs::ThreadRng, Rng};
 
 #[derive(Debug)]
 pub struct Cpu {
-    vx: [u8; 16], //General purpose registers
+    pub vx: [u8; 16], //General purpose registers
     pc: u16,      //Program counter
     i: u16,       //Another register, mostly for memory addresses
     stack: Vec<u16>,
     rng: ThreadRng,
-    blocked: bool,
+    pub blocked: (bool, usize),
 }
 
 impl Cpu {
@@ -22,7 +22,7 @@ impl Cpu {
             i: 0,
             stack: Vec::with_capacity(16),
             rng: rand::thread_rng(),
-            blocked: false,
+            blocked: (false, 0),
         }
     }
 
@@ -34,6 +34,10 @@ impl Cpu {
         delay_t: &mut u8,
         sound_t: &mut u8,
     ) -> Result<(), Chip8Error> {
+        if self.blocked.0 {
+            return Ok(());
+        }
+
         if self.pc >= (ram.length() - 1) as u16 {
             return Err(Chip8Error::EOF);
         }
@@ -51,7 +55,7 @@ impl Cpu {
         //NOOP
         if instr == 0x0 {
             {} //Do nothing
-               //Clears the display
+        //Clears the display
         } else if instr == 0x00E0 {
             display.clear();
 
@@ -211,7 +215,7 @@ impl Cpu {
 
         //Block the cpu. Unblock happens when a key is pressed
         } else if instr & 0xF0FF == 0xF00A {
-            self.blocked = true;
+            self.blocked = (true, x as usize);
 
         //Set the delay timer to the value of register x
         } else if instr & 0xF0FF == 0xF015 {

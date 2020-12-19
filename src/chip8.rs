@@ -6,6 +6,9 @@ use crate::ram::Ram;
 use ggez::event::EventHandler;
 use ggez::graphics::{self, DrawParam, Image};
 use ggez::{timer, Context, GameResult};
+use ggez::input::keyboard::{KeyCode, KeyMods};
+
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Chip8 {
@@ -14,18 +17,53 @@ pub struct Chip8 {
     display: Display,
     keys: [bool; 16],
     delay_t: u8,
+    delay_dec: u8,
     sound_t: u8,
+    keymap: HashMap<KeyCode, usize>,
 }
 
 impl Chip8 {
     pub fn new() -> Self {
+        //Initialize the keymap
+        //Layout:
+        //---------    ---------
+        //|A|S|D|F|    |1|2|3|C|
+        //---------    ---------
+        //|7|8|9|G|    |4|5|6|D|
+        //--------- => ---------
+        //|4|5|6|H|    |7|8|9|E|
+        //---------    ---------
+        //|1|2|3|J|    |A|0|B|F|
+        //---------    ---------
+
+        let keymap: HashMap<KeyCode, usize> = [
+            (KeyCode::A, 0x1),
+            (KeyCode::S, 0x2),
+            (KeyCode::D, 0x3),
+            (KeyCode::F, 0xC),
+            (KeyCode::Numpad7, 0x4),
+            (KeyCode::Numpad8, 0x5),
+            (KeyCode::Numpad9, 0x6),
+            (KeyCode::G, 0xD),
+            (KeyCode::Numpad4, 0x7),
+            (KeyCode::Numpad5, 0x8),
+            (KeyCode::Numpad6, 0x9),
+            (KeyCode::H, 0xE),
+            (KeyCode::Numpad1, 0xA),
+            (KeyCode::Numpad2, 0x0),
+            (KeyCode::Numpad3, 0xB),
+            (KeyCode::J, 0xF),
+        ].iter().cloned().collect();
+
         Chip8 {
             cpu: Cpu::new(),
             ram: Ram::new(),
             display: Display::new(),
             keys: [false; 16],
             delay_t: 0,
+            delay_dec: 8,
             sound_t: 0,
+            keymap: keymap,
         }
     }
 
@@ -42,6 +80,12 @@ impl EventHandler for Chip8 {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_HZ: u32 = 500;
         while timer::check_update_time(ctx, DESIRED_HZ) {
+            if self.delay_dec > 0 {
+                self.delay_dec -= 1;
+            } else if self.delay_t > 0 {
+                self.delay_dec = 8;
+                self.delay_t -= 1;
+            }
             let err = self.cpu
                 .tick(
                     &mut self.ram,
@@ -55,8 +99,6 @@ impl EventHandler for Chip8 {
                 panic!("{}", e);
             }
         }
-
-        //println!("{:?}", self);
         Ok(())
     }
 
@@ -77,5 +119,21 @@ impl EventHandler for Chip8 {
         graphics::draw(ctx, &image, DrawParam::default().scale([10.0, 10.0]))?;
 
         graphics::present(ctx)
+    }
+
+    fn key_down_event(&mut self, _ctx: &mut Context, keycode: KeyCode, _keymods: KeyMods, _repeat: bool) {
+        if self.keymap.contains_key(&keycode) {
+            self.keys[self.keymap[&keycode]] = true;
+            if self.cpu.blocked.0 {
+                self.cpu.vx[self.cpu.blocked.1] = self.keymap[&keycode] as u8;
+                self.cpu.blocked = (false, 0);
+            }
+        }
+    }
+
+    fn key_up_event(&mut self, _ctx: &mut Context, keycode: KeyCode, _keymods: KeyMods) {
+        if self.keymap.contains_key(&keycode) {
+            self.keys[self.keymap[&keycode]] = false;
+        }
     }
 }
