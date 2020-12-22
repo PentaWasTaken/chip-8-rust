@@ -219,15 +219,15 @@ impl Cpu {
 
         //Set the delay timer to the value of register x
         } else if instr & 0xF0FF == 0xF015 {
-            *delay_t = self.vx[x as usize];
+            *delay_t = val_x;
 
         //Set the sound timer to the value of register x
         } else if instr & 0xF0FF == 0xF018 {
-            *sound_t = self.vx[x as usize];
+            *sound_t = val_x;
 
         //Add register x to I, storing in I
         } else if instr & 0xF0FF == 0xF01E {
-            self.i += self.vx[x as usize] as u16;
+            self.i += val_x as u16;
 
         //Set I to the location of the sprite for the digit corresponding to the value of register x
         } else if instr & 0xF0FF == 0xF029 {
@@ -244,13 +244,13 @@ impl Cpu {
 
         //Store registers v0 to vx to ram, starting at location i
         } else if instr & 0xF0FF == 0xF055 {
-            for j in 0..x {
+            for j in 0..=x {
                 ram.write_byte(j + x, self.vx[j as usize]);
             }
 
-        //Store registers v0 to vx to ram, starting at location i
+        //Read registers v0 to vx from memory, starting at location i
         } else if instr & 0xF0FF == 0xF065 {
-            for j in 0..x {
+            for j in 0..=x {
                 self.vx[j as usize] = ram.read_byte(self.i + j);
             }
         } else {

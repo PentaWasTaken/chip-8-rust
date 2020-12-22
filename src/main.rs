@@ -11,7 +11,7 @@ mod ram;
 
 const ROM_PATH: &str = "games/CONNECT4";
 
-use ggez::{ContextBuilder, event};
+use ggez::{event, ContextBuilder};
 
 fn main() {
     //Read the ROM file

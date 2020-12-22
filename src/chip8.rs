@@ -5,8 +5,8 @@ use crate::ram::Ram;
 
 use ggez::event::EventHandler;
 use ggez::graphics::{self, DrawParam, Image};
-use ggez::{timer, Context, GameResult};
 use ggez::input::keyboard::{KeyCode, KeyMods};
+use ggez::{timer, Context, GameResult};
 
 use std::collections::HashMap;
 
@@ -53,7 +53,10 @@ impl Chip8 {
             (KeyCode::Numpad2, 0x0),
             (KeyCode::Numpad3, 0xB),
             (KeyCode::J, 0xF),
-        ].iter().cloned().collect();
+        ]
+        .iter()
+        .cloned()
+        .collect();
 
         Chip8 {
             cpu: Cpu::new(),
@@ -86,14 +89,13 @@ impl EventHandler for Chip8 {
                 self.delay_dec = 8;
                 self.delay_t -= 1;
             }
-            let err = self.cpu
-                .tick(
-                    &mut self.ram,
-                    &mut self.display,
-                    &self.keys,
-                    &mut self.delay_t,
-                    &mut self.sound_t,
-                );
+            let err = self.cpu.tick(
+                &mut self.ram,
+                &mut self.display,
+                &self.keys,
+                &mut self.delay_t,
+                &mut self.sound_t,
+            );
 
             if let Err(e) = err {
                 panic!("{}", e);
@@ -121,7 +123,13 @@ impl EventHandler for Chip8 {
         graphics::present(ctx)
     }
 
-    fn key_down_event(&mut self, _ctx: &mut Context, keycode: KeyCode, _keymods: KeyMods, _repeat: bool) {
+    fn key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        keycode: KeyCode,
+        _keymods: KeyMods,
+        _repeat: bool,
+    ) {
         if self.keymap.contains_key(&keycode) {
             self.keys[self.keymap[&keycode]] = true;
             if self.cpu.blocked.0 {
