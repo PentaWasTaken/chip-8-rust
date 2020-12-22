@@ -9,7 +9,7 @@ mod display;
 mod errors;
 mod ram;
 
-const ROM_PATH: &str = "games/CONNECT4";
+const ROM_PATH: &str = "games/random_number_test.ch8";
 
 use ggez::{event, ContextBuilder};
 

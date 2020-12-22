@@ -7,9 +7,9 @@ use rand::{rngs::ThreadRng, Rng};
 #[derive(Debug)]
 pub struct Cpu {
     pub vx: [u8; 16], //General purpose registers
-    pc: u16,          //Program counter
-    i: u16,           //Another register, mostly for memory addresses
-    stack: Vec<u16>,
+    pub pc: u16,          //Program counter
+    pub i: u16,           //Another register, mostly for memory addresses
+    pub stack: Vec<u16>,
     rng: ThreadRng,
     pub blocked: (bool, usize),
 }
@@ -66,7 +66,6 @@ impl Cpu {
             }
             self.pc = *self.stack.last().unwrap();
             self.stack.pop();
-            return Ok(());
 
         //Jumps to another location
         } else if instr & 0xF000 == 0x1000 {

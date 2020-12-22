@@ -64,7 +64,7 @@ impl Chip8 {
             display: Display::new(),
             keys: [false; 16],
             delay_t: 0,
-            delay_dec: 8,
+            delay_dec: 0,
             sound_t: 0,
             keymap: keymap,
         }
