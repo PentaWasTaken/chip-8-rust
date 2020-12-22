@@ -7,8 +7,8 @@ use rand::{rngs::ThreadRng, Rng};
 #[derive(Debug)]
 pub struct Cpu {
     pub vx: [u8; 16], //General purpose registers
-    pc: u16,      //Program counter
-    i: u16,       //Another register, mostly for memory addresses
+    pc: u16,          //Program counter
+    i: u16,           //Another register, mostly for memory addresses
     stack: Vec<u16>,
     rng: ThreadRng,
     pub blocked: (bool, usize),
@@ -55,7 +55,7 @@ impl Cpu {
         //NOOP
         if instr == 0x0 {
             {} //Do nothing
-        //Clears the display
+               //Clears the display
         } else if instr == 0x00E0 {
             display.clear();
 
@@ -70,15 +70,13 @@ impl Cpu {
 
         //Jumps to another location
         } else if instr & 0xF000 == 0x1000 {
-            let l = instr & 0x0FFF;
-            self.pc = l;
+            self.pc = instr & 0x0FFF;
             return Ok(());
 
         //Calls a subroutine
         } else if instr & 0xF000 == 0x2000 {
             self.stack.push(self.pc);
-            let l = instr & 0x0FFF;
-            self.pc = l;
+            self.pc = instr & 0x0FFF;
             return Ok(());
 
         //Skips the next instruction if the register is equal to the value of the lower 8 bits
@@ -96,7 +94,7 @@ impl Cpu {
             }
 
         //Skip the next intstruction if the registers are equal
-        } else if instr & 0xF000 == 0x5000 {
+        } else if instr & 0xF00F == 0x5000 {
             if val_x == val_y {
                 self.pc += 2;
             }
@@ -109,23 +107,23 @@ impl Cpu {
         //Adds the value of the lower 8 bits to the register and stores it in the register
         } else if instr & 0xF000 == 0x7000 {
             let val = instr & 0x00FF;
-            self.vx[x as usize] = ((self.vx[x as usize] as u16 + val) % 256) as u8;
+            self.vx[x as usize] = self.vx[x as usize].wrapping_add(val as u8);
 
         //Stores the value of register y into register x
         } else if instr & 0xF00F == 0x8000 {
-            self.vx[x as usize] = self.vx[y as usize];
+            self.vx[x as usize] = val_y;
 
         //Bitwise OR on registers x and y, storing the result in register x
         } else if instr & 0xF00F == 0x8001 {
-            self.vx[x as usize] = self.vx[x as usize] | self.vx[y as usize];
+            self.vx[x as usize] = val_x | val_y;
 
         //Bitwise AND on registers x and y, storing the result in register x
         } else if instr & 0xF00F == 0x8002 {
-            self.vx[x as usize] = self.vx[x as usize] & self.vx[y as usize];
+            self.vx[x as usize] = val_x & val_y;
 
         //Bitwise XOR on registers x and y, storing the result in register x
         } else if instr & 0xF00F == 0x8003 {
-            self.vx[x as usize] = self.vx[x as usize] ^ self.vx[y as usize];
+            self.vx[x as usize] = val_x ^ val_y;
 
         //Addition of registers x + y, storing into x. If the value overflows, set vF to 1, else to 0.
         } else if instr & 0xF00F == 0x8004 {
@@ -144,30 +142,28 @@ impl Cpu {
             } else {
                 self.vx[0xF] = 0;
             }
-            let diff = val_x as i16 - val_y as i16;
-            self.vx[x as usize] = diff as u8;
+            self.vx[x as usize] = val_x.wrapping_sub(val_y);
 
         //Shift value of register y one bit to the right, store in register x.
         //vF is set to the least significant bit prior to the shift.
         } else if instr & 0xF00F == 0x8006 {
-            self.vx[0xF] = val_y & 0x1;
-            self.vx[x as usize] = val_y >> 1;
+            self.vx[0xF] = val_x & 0x1;
+            self.vx[x as usize] = val_x >> 1;
 
         //Shift value of register y one bit to the left, store in register x.
         //vF is set to the least significant bit prior to the shift.
         } else if instr & 0xF00F == 0x800E {
-            self.vx[0xF] = val_y & 0x80;
-            self.vx[x as usize] = val_y << 1;
+            self.vx[0xF] = (val_x & 0x80) >> 7;
+            self.vx[x as usize] = val_x << 1;
 
         //Subtraction of registers y - x, storing into x. If value x > value y, then vF is set to 1, otherwise 0.
         } else if instr & 0xF00F == 0x8007 {
-            if val_y > val_y {
+            if val_y > val_x {
                 self.vx[0xF] = 1;
             } else {
                 self.vx[0xF] = 0;
             }
-            let diff = val_y as i16 - val_x as i16;
-            self.vx[x as usize] = diff as u8;
+            self.vx[x as usize] = val_y.wrapping_sub(val_x);
 
         //Skip the next instruction if value x != value y.
         } else if instr & 0xF00F == 0x9000 {
@@ -194,18 +190,22 @@ impl Cpu {
         } else if instr & 0xF000 == 0xD000 {
             let n = instr & 0x000F;
             let bytes: Vec<u8> = (0..n).map(|x| ram.read_byte(self.i + x)).collect();
-            let collision = display.display_sprite(&bytes, self.vx[x as usize] as u16, self.vx[y as usize] as u16);
+            let collision = display.display_sprite(
+                &bytes,
+                self.vx[x as usize] as u16,
+                self.vx[y as usize] as u16,
+            );
             self.vx[0xF] = collision as u8;
-
-        //Skips the next instruction if the key x is not pressed
-        } else if instr & 0xF0FF == 0xE0A1 {
-            if !keys[x as usize] {
-                self.pc += 2;
-            }
 
         //Skips the next instruction if the key x is pressed
         } else if instr & 0xF0FF == 0xE09E {
-            if keys[x as usize] {
+            if keys[val_x as usize] {
+                self.pc += 2;
+            }
+
+        //Skips the next instruction if the key x is not pressed
+        } else if instr & 0xF0FF == 0xE0A1 {
+            if !keys[val_x as usize] {
                 self.pc += 2;
             }
 
